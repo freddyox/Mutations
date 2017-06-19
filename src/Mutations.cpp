@@ -111,6 +111,16 @@ void Mutations::GetAverageRGB(){
   GenerateTriangles(false,fAverage);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Grid the input image, get average RGB value of each grid
+//
+void Mutations::GridInput(){
+  for(int w=0; w<fDisx; w++){
+    for(int h=0; h<fDisy; h++){
+      sf::Color color_temp = fImage.getPixel(w,h);
+    }
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // A chi2 calculation of rgb pixels
@@ -145,8 +155,8 @@ double Mutations::CalculateFitness(bool first_attempt, bool rgba=false){
 // Mutate:
 //
 void Mutations::Mutate(int R, int col){
-  if( fNMutations < 1e5 || fFitness < 0.94 ) {
-    R = fDisx/7;
+  if( fNMutations < 1e5 || fFitness < 0.97 ) {
+    R = fDisx/5;
     col = 35;
   }
 
@@ -178,7 +188,6 @@ void Mutations::Mutate(int R, int col){
     // Increment for the next, or reset if it is too large:
     fTriCountPos++;
     if( fTriCountPos == fTrianglesNext.size() ) fTriCountPos = 0;  
-   
   } else {
     // we want this to be an odd number
     if( col%2==0 ) col++; 
