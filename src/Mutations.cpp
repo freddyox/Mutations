@@ -1,27 +1,25 @@
 #include "../include/Mutations.hh"
 
-#include <stdio.h>   
-#include <stdlib.h>
 #include <iostream>
-#include <cmath>
 #include "TMath.h"
 
 
 Mutations::Mutations(unsigned int x, unsigned int y, int N)
   : fDisx(x), fDisy(y), fNtries(N) {
   fNPixels = fDisx * fDisy;
-  fTri = sf::VertexArray(sf::Triangles,3);
+
+  fTri = sf::VertexArray(sf::Triangles,3);  // SFML vertex array, defined to be triangle
   
-  fFitness = 1.0e15;
-  // Index to Change Mutations:
-  fTriCountPos = 0;
-  fTriCountCol = 0;
-  fNMutations = 0;
-  fNAttempts = 0;
-  fRGBA[0] = "r";
-  fRGBA[1] = "g";
-  fRGBA[2] = "b";
-  fRGBA[3] = "a";
+  fFitness = 1.0e15;   // Fitness should always be under 1.0 now
+ 
+  fTriCountPos = 0;    // Counter to access triangle position vector
+  fTriCountCol = 0;    // Counter to access triangle color vector
+  fNMutations = 0;     // # of successful mutations
+  fNAttempts = 0;      // # of mutation attempts
+  fRGBA[0] = "r";      // testing
+  fRGBA[1] = "g";      //   .
+  fRGBA[2] = "b";      //   .
+  fRGBA[3] = "a";      //   .
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -36,35 +34,74 @@ void Mutations::draw( sf::RenderTarget& target, sf::RenderStates) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Generate Initial Triangles:
-//
-void Mutations::GenerateTriangles(bool randomcolor, sf::Color col){
+// 1) randomcolor = true, then 2nd and 3rd argument are irrelevant and tris get
+//    a random rgb assigned
+// 2) randomcolor=false, grid=false, then tris get colored by col
+// 3) randomcolor=false, grid=true, then 2nd argumet is irrelevant. Input image
+//    is divided into smaller section where average rgb is then taken. The average
+//    x and y position of randomly generated triangles get assigned color of grid average
+void Mutations::GenerateTriangles(bool randomcolor, sf::Color col, bool grid){
   srand( time(NULL) );
   int xhi = fDisx+1;
   int yhi = fDisy+1; 
   for(int m=0; m<fNtries; m++){
     
-    unsigned int r = rand()%256; // 0-> 255
-    unsigned int g = rand()%256;
-    unsigned int b = rand()%256;
-    unsigned int a = rand()%256;
+    unsigned int r = fRand.Integer(256); // 0 -> 255
+    unsigned int g = fRand.Integer(256);
+    unsigned int b = fRand.Integer(256);
+    unsigned int a = fRand.Integer(256);
     
     if( !randomcolor ){
-      r=col.r;
-      g=col.g;
-      b=col.b;
+      r = col.r;
+      g = col.g;
+      b = col.b;
+      a = 255;
     }
-    
+
+    double xavg = 0.0;
+    double yavg = 0.0;
     for(int i=0; i<3; i++){
       int tempx = fRand.Integer(xhi); // 0 -> fDisx 
       int tempy = fRand.Integer(yhi); // 0 -> fDisy
-    
-      fTri[i].position = sf::Vector2f(tempx,tempy);
-      fTri[i].color = sf::Color(r,g,b,a);  // all get the same color for this algorithm
-      fTriPositions[3*m+i] = sf::Vector2f(tempx, tempy);
-      fVertexMap[3*m+i] = m;
+      // std::cout << tempx << std::endl;
+      xavg += tempx;
+      yavg += tempy;
+      fTri[i].position = sf::Vector2f(tempx,tempy);   
+      fTriPositionsNow[3*m+i]  = sf::Vector2f(tempx, tempy);
+      fTriPositionsNext[3*m+i] = sf::Vector2f(tempx, tempy);
+    }
+
+    xavg /= 3.0;
+    yavg /= 3.0;
+
+    int index = -1;
+    if( grid ){
+      for(int i=0; i<fBoundaryColor.size(); i++){
+	if( fBoundaryColor[i].contains( xavg, yavg) ){
+	  index = i;
+	}
+      }
     }
     
-    fTriColors[m] = sf::Color(r,g,b,a);
+    sf::Color boundarycolor;
+    if( index < 0 ){
+      //std::cout << "The boundary finder has an issue, defaulting to average color." << std::endl;
+      for(int i=0; i<3; i++){ 
+	fTri[i].color = sf::Color(r,g,b,a);  // all get the same color for this algorithm
+      }
+    } else {
+      boundarycolor = fGridColor[index];
+      for(int i=0; i<3; i++){ 
+	fTri[i].color = boundarycolor;  // all get the same color for this algorithm
+	r = boundarycolor.r;
+	g = boundarycolor.g;
+	b = boundarycolor.b;
+	a = 255;
+      }
+    }
+
+    fTriColorsNow[m]  = sf::Color(r,g,b,a);
+    fTriColorsNext[m] = sf::Color(r,g,b,a);
     fTrianglesNow.push_back(fTri);
     fTrianglesNext.push_back(fTri);
   }
@@ -87,7 +124,7 @@ void Mutations::GetAttempt(sf::Image win,bool first_try){
 
   // Set fitness between input and initial polygon generation:
   if( first_try ){
-    fFitness = CalculateFitness( true, false);
+    fFitness = CalculateFitness( true, true);
   }
 }
 
@@ -107,17 +144,45 @@ void Mutations::GetAverageRGB(){
   b /= fInput.size();
   fAverage = sf::Color(r,g,b);
 
-  // Generate the Triangles:
-  GenerateTriangles(false,fAverage);
+  // Generate the Triangles: ***********need to move this and clean up
+  GenerateTriangles(false,fAverage,true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Grid the input image, get average RGB value of each grid
 //
-void Mutations::GridInput(){
-  for(int w=0; w<fDisx; w++){
-    for(int h=0; h<fDisy; h++){
-      sf::Color color_temp = fImage.getPixel(w,h);
+void Mutations::GridInput(int ngrids){
+  fGridX = fDisx / ngrids;
+  fGridY = fDisy / ngrids;
+
+  for(int col=0; col<ngrids; col++){
+    for(int row=0; row<ngrids; row++){
+      unsigned int r=0,g=0,b=0;
+      int startcol = col*fGridX;
+      int startrow = row*fGridY;
+      int endcol = startcol + fGridX;
+      int endrow = startrow + fGridY;      
+      
+      if(col==ngrids-1) endcol=fDisx;
+      if(row==ngrids-1) endrow=fDisy;
+      
+      for(int w=startcol; w<endcol; w++){
+	for(int h=startrow; h<endrow; h++){
+	  sf::Color temp = fImage.getPixel(w,h);
+	  r += temp.r;
+	  g += temp.g;
+	  b += temp.b;
+	}
+      }
+      r /= (fGridX*fGridY);
+      g /= (fGridX*fGridY);
+      b /= (fGridX*fGridY);
+      int center_col = startcol + fGridX/2;
+      int center_row = startrow + fGridY/2;
+      sf::FloatRect boundary(startcol,startrow,fGridX,fGridY);
+
+      fGridColor.push_back( sf::Color(r,g,b) );
+      fBoundaryColor.push_back( boundary );
     }
   }
 }
@@ -147,54 +212,65 @@ double Mutations::CalculateFitness(bool first_attempt, bool rgba=false){
       fitness += pow(imagecol[j]-repcol[j],2.0);
     }
   }
-  double norm = fNPixels * index * pow(255,2.0);
+  double norm = fNPixels * index * pow(256,2.0);
   fitness /= norm;
   return 1 - fitness;
 }
 ////////////////////////////////////////////////////////////////////////////////
-// Mutate:
+// Mutate the position or RGBA depending on random #s
 //
 void Mutations::Mutate(int R, int col){
-  if( fNMutations < 1e5 || fFitness < 0.97 ) {
-    R = fDisx/5;
-    col = 35;
-  }
+  // if( fNMutations < 1e5 || fFitness < 0.98 ) {
+  //   R = fDisx/6;
+  //   col = 50;
+  // }
 
   int what2mutate = fRand.Integer(2); // 0 or 1
   if( what2mutate == 0 ){
     if( R<=1 ) R=2;    // backup case R: 1 -> 2
   
-    int rad   = fRand.Integer(R) + 1; // 1 -> R
-    int theta = fRand.Integer(361);   // 0 -> 360
-    double theta_rad = theta * (TMath::Pi()/180.0);
-    double x = rad*TMath::Cos( theta_rad );
-    double y = rad*TMath::Sin( theta_rad );
+    // int rad   = fRand.Integer(R) + 1; // 1 -> R
+    // int theta = fRand.Integer(361);   // 0 -> 360
+    // double theta_rad = theta * (TMath::Pi()/180.0);
+    // double x = rad*TMath::Cos( theta_rad );
+    // double y = rad*TMath::Sin( theta_rad );
+
+    int xn = 201;
+    int yn = 201;
+    int x = fRand.Integer(xn);
+    int y = fRand.Integer(yn);
+    if( xn%2==0 ) xn++;
+    if( yn%2==0 ) yn++;
+    x -= (xn/2);
+    y -= (yn/2);
     
     int vertex = fRand.Integer(3);
     int index = 3*fTriCountPos + vertex;
 
-    // Prevent the triangle from going to far away
-    sf::Vector2f newpos = fTriPositions[index] + sf::Vector2f(x,y);
-    if( int(newpos.x) < -10     ) x *= -1.0;
-    if( int(newpos.x) > fDisx+10 ) x *= -1.0;
-    if( int(newpos.y) < -10     ) y *= -1.0;
-    if( int(newpos.y) > fDisy+10 ) y *= -1.0;
+    // Prevent the triangle from going too far away
+    sf::Vector2f newpos = fTriPositionsNow[index] + sf::Vector2f(x,y);
+    if( int(newpos.x) < -10     ) x  = -10;
+    if( int(newpos.x) > fDisx+10 ) x = fDisx+10;
+    if( int(newpos.y) < -10     ) y  = -10;
+    if( int(newpos.y) > fDisy+10 ) y = fDisy+10;
     
-    fTrianglesNext[fTriCountPos][vertex].position = fTriPositions[index] + sf::Vector2f(x,y);
-     
+    fTrianglesNext[fTriCountPos][vertex].position = fTriPositionsNow[index] + sf::Vector2f(x,y);
+    fTriPositionsNext[index] = fTriPositionsNow[index] + sf::Vector2f(x,y);
+    
     //std::cout << "\nMutation: " <<  fTriPositions[index].x << ", " <<  fTriPositions[index].y
     //<< " ----- " << x << ", " << y << std::endl;
 
     // Increment for the next, or reset if it is too large:
     fTriCountPos++;
-    if( fTriCountPos == fTrianglesNext.size() ) fTriCountPos = 0;  
+    if( fTriCountPos == fTrianglesNext.size() ) fTriCountPos = 0;
+    
   } else {
     // we want this to be an odd number
     if( col%2==0 ) col++; 
     int randcol = fRand.Integer(col);
-    randcol -= col / 2;
+    randcol -= (col / 2);
     
-    sf::Color oldcolor = fTriColors[fTriCountCol]; 
+    sf::Color oldcolor = fTriColorsNow[fTriCountCol]; 
     unsigned int rgba[4] = {oldcolor.r, oldcolor.g, oldcolor.b, oldcolor.a};
     int random_rgba = fRand.Integer(4);
     rgba[random_rgba] += randcol;
@@ -203,44 +279,52 @@ void Mutations::Mutate(int R, int col){
       
     for(int i=0; i<4; i++){
       int test_rgba = rgba[i];
-      if( test_rgba >= 256 ) rgba[i] = 255;
+      if( test_rgba >= 255 ) rgba[i] = 255;
       if( test_rgba < 0 )    rgba[i] = 0;      
     }
     
     sf::Color newcolor = sf::Color(rgba[0],rgba[1],rgba[2],rgba[3]);
 
-    for(int i=0; i<3; i++ )
+    for(int i=0; i<3; i++ ) {
       fTrianglesNext[fTriCountCol][i].color = newcolor;
+      fTriColorsNext[fTriCountCol] = newcolor;
+    }
     
     fTriCountCol++;
-    if( fTriCountCol == fTriColors.size() ) fTriCountCol = 0;
+    if( fTriCountCol == fTriColorsNow.size() ) fTriCountCol = 0;
   }
 }
 ////////////////////////////////////////////////////////////////////////////////
 // Did we successfully mutate, or we keep original set?
 //
 void Mutations::CheckMutation(){
-  double fit_mutation = CalculateFitness( false, false);
+  double fit_mutation = CalculateFitness( false, true);
   if( fNAttempts%50==0 ) {
     std::cout << fNAttempts << "\t" << fNMutations
 	      << "\t" << fit_mutation << "\t" << fFitness << std::endl;
   }
   if( fit_mutation > fFitness ){
-    fFitness = fit_mutation;
-    fNow.clear();
-    fNow = fNext;
-    fNext.clear();
-    fTrianglesNow.clear();
-    fTrianglesNow = fTrianglesNext;
-    // Increment the mutation counter, or successes:
-    fNMutations++;
+    fFitness = fit_mutation;                  // Update fitness as we have succeeded
+    fNow.clear();                             // Clear Now, replace with Next
+    fNow = fNext;                             // Replace
+    fNext.clear();                            // Clear Next, get ready for new screenshot
+    fTrianglesNow.clear();                    // Clear current triangles 
+    fTrianglesNow = fTrianglesNext;           // Replace
+    fTriPositionsNow.clear();                 // Clear current positions
+    fTriPositionsNow = fTriPositionsNext;     // Replace
+    fTriColorsNow.clear();                    // Clear current colors
+    fTriColorsNow = fTriColorsNext;           // Replace
+    fNMutations++;                            // Increment the mutation counter, or successes:   
   } else {
-    fNext.clear();
-    fTrianglesNext.clear();
-    fTrianglesNext = fTrianglesNow;
+    fNext.clear();                            // Mutation is bad, discard
+    fTrianglesNext.clear();                   // Discard triangles
+    fTrianglesNext = fTrianglesNow;           // Reset
+    fTriPositionsNext.clear();                // Discard positions
+    fTriPositionsNext = fTriPositionsNow;     // Reset
+    fTriColorsNext.clear();                   // Discard colors
+    fTriColorsNext = fTriColorsNow;           // Reset
   }
-  // Total number of attempts:
-  fNAttempts++;
+  fNAttempts++;                               // Total number of attempts:
 }
 
 ////////////////////////////////////////////////////////////////////////////////

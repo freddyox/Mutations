@@ -29,6 +29,7 @@ public:
   
   std::vector<sf::Color> fImageColors;
   std::vector<sf::Color> getColorVec() { return fImageColors; }
+  sf::Image getImage() { return fImage; }
   
 };
 #endif

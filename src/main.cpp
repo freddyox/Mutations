@@ -15,7 +15,8 @@ int main(int argc, char* argv[]) {
   //////////////////////////////////////////////////////
 
   // 1) Initalize the image to be mutated, grab display x/y
-  std::string fImName = "/home/obrecht/Documents/Projects_New/GeneticEvolution/pics/mona-lisa.jpg";
+  //std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
+  std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/tri.jpg";
   HandleInput fImage(fImName);
   
   sf::Vector2u fSize = fImage.getSize();
@@ -27,6 +28,8 @@ int main(int argc, char* argv[]) {
   // 2) Initialize the class to handle mutations:
   Mutations fMutate(fSize.x, fSize.y, 50);
   fMutate.setImageColorVec(fcols);
+  fMutate.SetImage( fImage.getImage() );
+  fMutate.GridInput(4);
   fMutate.GetAverageRGB();
   bool fFirstTry = true;
   
@@ -87,7 +90,7 @@ int main(int argc, char* argv[]) {
       }
     }
     window.clear();
-    window_mutate.clear();
+    window_mutate.clear(sf::Color::White);
     //window_dia.clear(sf::Color::White);
 
     // Needs to happen after first try:
@@ -111,11 +114,12 @@ int main(int argc, char* argv[]) {
     if( fFirstTry ){
       fMutate.GetAttempt( window_mutate.capture(),true);
       //fMutate.Test("a_test");
-      fMutate.SetImage( window_mutate.capture() );
       fFirstTry = false;
     }else{
-      fMutate.GetAttempt( window_mutate.capture(),false);
-      fMutate.CheckMutation();
+      //if(counter>0 && counter%10==0 ) {
+	fMutate.GetAttempt( window_mutate.capture(),false);
+	fMutate.CheckMutation();
+	//}
     }
     
     window.display();
