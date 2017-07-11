@@ -2,15 +2,16 @@
 
 #include <iostream>
 #include "TMath.h"
+#include "TGraph.h"
+#include "TAxis.h"
 
-
-Mutations::Mutations(unsigned int x, unsigned int y, int N)
-  : fDisx(x), fDisy(y), fNtries(N) {
+Mutations::Mutations(unsigned int x, unsigned int y, int N, int Nvertices)
+  : fDisx(x), fDisy(y), fNtries(N), fNvertices(Nvertices) {
   fNPixels = fDisx * fDisy;
 
   fTri = sf::VertexArray(sf::Triangles,3);  // SFML vertex array, defined to be triangle
   
-  fFitness = 1.0e15;   // Fitness should always be under 1.0 now
+  fFitness = 1.0e10;   // Fitness should always be under 1.0 now
  
   fTriCountPos = 0;    // Counter to access triangle position vector
   fTriCountCol = 0;    // Counter to access triangle color vector
@@ -20,6 +21,14 @@ Mutations::Mutations(unsigned int x, unsigned int y, int N)
   fRGBA[1] = "g";      //   .
   fRGBA[2] = "b";      //   .
   fRGBA[3] = "a";      //   .
+
+  setupOutput("test_root_output");
+  hRandPosX_Fitness = new TH2D("hRandPosX_Fitness","",203,-101.0,101.0,100,0.8,1.0);
+  hRandPosX_Fitness->SetXTitle("Random Position X Number [pixels]");
+  hRandPosX_Fitness->SetYTitle("Fitness [unitless]");
+  hRandPosY_Fitness = new TH2D("hRandPosY_Fitness","",203,-101.0,101.0,100,0.8,1.0);
+  hRandPosY_Fitness->SetXTitle("Random Position Y Number [pixels]");
+  hRandPosY_Fitness->SetYTitle("Fitness [unitless]");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -55,7 +64,7 @@ void Mutations::GenerateTriangles(bool randomcolor, sf::Color col, bool grid){
       r = col.r;
       g = col.g;
       b = col.b;
-      a = 255;
+      //a = 255;
     }
 
     double xavg = 0.0;
@@ -96,7 +105,7 @@ void Mutations::GenerateTriangles(bool randomcolor, sf::Color col, bool grid){
 	r = boundarycolor.r;
 	g = boundarycolor.g;
 	b = boundarycolor.b;
-	a = 255;
+	//a = 255;
       }
     }
 
@@ -157,7 +166,7 @@ void Mutations::GridInput(int ngrids){
 
   for(int col=0; col<ngrids; col++){
     for(int row=0; row<ngrids; row++){
-      unsigned int r=0,g=0,b=0;
+      unsigned int r=0,g=0,b=0,a=0;
       int startcol = col*fGridX;
       int startrow = row*fGridY;
       int endcol = startcol + fGridX;
@@ -172,11 +181,13 @@ void Mutations::GridInput(int ngrids){
 	  r += temp.r;
 	  g += temp.g;
 	  b += temp.b;
+	  a += temp.a;
 	}
       }
       r /= (fGridX*fGridY);
       g /= (fGridX*fGridY);
       b /= (fGridX*fGridY);
+      a = 256/2;
       int center_col = startcol + fGridX/2;
       int center_row = startrow + fGridY/2;
       sf::FloatRect boundary(startcol,startrow,fGridX,fGridY);
@@ -224,7 +235,8 @@ void Mutations::Mutate(int R, int col){
   //   R = fDisx/6;
   //   col = 50;
   // }
-
+  col = 61;
+  
   int what2mutate = fRand.Integer(2); // 0 or 1
   if( what2mutate == 0 ){
     if( R<=1 ) R=2;    // backup case R: 1 -> 2
@@ -235,14 +247,16 @@ void Mutations::Mutate(int R, int col){
     // double x = rad*TMath::Cos( theta_rad );
     // double y = rad*TMath::Sin( theta_rad );
 
-    int xn = 201;
-    int yn = 201;
+    int xn = 301;
+    int yn = 301;
     int x = fRand.Integer(xn);
     int y = fRand.Integer(yn);
     if( xn%2==0 ) xn++;
     if( yn%2==0 ) yn++;
     x -= (xn/2);
     y -= (yn/2);
+    fRandPosX = double(x);
+    fRandPosY = double(y);
     
     int vertex = fRand.Integer(3);
     int index = 3*fTriCountPos + vertex;
@@ -298,7 +312,7 @@ void Mutations::Mutate(int R, int col){
 // Did we successfully mutate, or we keep original set?
 //
 void Mutations::CheckMutation(){
-  double fit_mutation = CalculateFitness( false, true);
+  double fit_mutation = CalculateFitness( false, true );
   if( fNAttempts%50==0 ) {
     std::cout << fNAttempts << "\t" << fNMutations
 	      << "\t" << fit_mutation << "\t" << fFitness << std::endl;
@@ -314,7 +328,11 @@ void Mutations::CheckMutation(){
     fTriPositionsNow = fTriPositionsNext;     // Replace
     fTriColorsNow.clear();                    // Clear current colors
     fTriColorsNow = fTriColorsNext;           // Replace
-    fNMutations++;                            // Increment the mutation counter, or successes:   
+    if(fNMutations%100==0){
+      fNMutateX.push_back( fNMutations );
+      fFitnessY.push_back( fFitness );
+    }
+    fNMutations++;                            // Increment the mutation counter, or successes
   } else {
     fNext.clear();                            // Mutation is bad, discard
     fTrianglesNext.clear();                   // Discard triangles
@@ -324,8 +342,56 @@ void Mutations::CheckMutation(){
     fTriColorsNext.clear();                   // Discard colors
     fTriColorsNext = fTriColorsNow;           // Reset
   }
+
+  if(fNAttempts%100==0){
+    fNAttemptX.push_back( fNAttempts );
+    fFitnessYY.push_back( fFitness );
+  }
+
+  hRandPosX_Fitness->Fill(fRandPosX,fFitness);
+  hRandPosY_Fitness->Fill(fRandPosY,fFitness);
   fNAttempts++;                               // Total number of attempts:
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// ROOT setup output
+//
+void Mutations::setupOutput(const char* output){
+  fOut = new TFile(Form("%s.root",output),"RECREATE");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ROOT Finish Up
+//
+void Mutations::FinishUp(){
+  TGraph *g1 = new TGraph( fNMutateX.size(), &(fNMutateX[0]), &(fFitnessY[0]) );
+  g1->SetName("N_Mutations_vs_Fitness");
+  g1->SetTitle("N_Mutations_vs_Fitness");
+  g1->SetMarkerStyle(20);
+  g1->SetMarkerColor(kBlue+2);
+  g1->SetLineColor(kBlue+2);
+  g1->GetXaxis()->SetTitle("# of Mutations");
+  g1->GetYaxis()->SetTitle("Fitness [unitless]");
+  fOut->cd();
+  g1->Write();
+
+  TGraph *g2 = new TGraph( fNAttemptX.size(), &(fNAttemptX[0]), &(fFitnessYY[0]) );
+  g2->SetName("N_Attempts_vs_Fitness");
+  g2->SetTitle("N_Attempts_vs_Fitness");
+  g2->SetMarkerStyle(20);
+  g2->SetMarkerColor(kBlue+2);
+  g2->SetLineColor(kBlue+2);
+  g2->GetXaxis()->SetTitle("# of Attempts");
+  g2->GetYaxis()->SetTitle("Fitness [unitless]");
+  fOut->cd();
+  g2->Write();
+
+  hRandPosX_Fitness->Write();
+  hRandPosY_Fitness->Write();
+  
+  fOut->Write();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // A Testing Function
@@ -341,3 +407,4 @@ void Mutations::Test(const char* output){
   }
   testing.saveToFile( Form("%s.jpg", output) );
 }
+

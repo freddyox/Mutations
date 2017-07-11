@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <sstream>
 
 #include "../include/HandleInput.hh"
 #include "../include/Mutations.hh"
@@ -13,10 +14,35 @@ int main(int argc, char* argv[]) {
   //////////////////////////////////////////////////////
   //                   Initialize                     //
   //////////////////////////////////////////////////////
+  std::string tempname = "";
+  int nvertices = 3;
+  if(argc==1){        // no arguments
+    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
+    nvertices = 3;
+  }
+  else if( argc==2 ){ // 1 argument
+    tempname = argv[1];
+    nvertices = 3;
+  }
+  else if( argc==3 ){
+    tempname = argv[1];
+    std::istringstream ss(argv[2]);
+    int x;
+    if( !(ss >> x) ){
+      std::cout << "Invalid vertex argument. Setting it to the default value of 3" << std::endl;
+      x=3;
+    } else {
+      nvertices = std::atoi(argv[2]);
+    }
+  } else {
+    std::cerr << "Wrong number of arguments pass. Default settings will be used." << std::endl;
+    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
+    nvertices = 3;
+  }
 
   // 1) Initalize the image to be mutated, grab display x/y
-  //std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
-  std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/tri.jpg";
+  std::string fImName = tempname;
+  //std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/tri.jpg";
   HandleInput fImage(fImName);
   
   sf::Vector2u fSize = fImage.getSize();
@@ -26,7 +52,7 @@ int main(int argc, char* argv[]) {
   std::vector<sf::Color> fcols = fImage.getColorVec();
 
   // 2) Initialize the class to handle mutations:
-  Mutations fMutate(fSize.x, fSize.y, 50);
+  Mutations fMutate(fSize.x, fSize.y, 300, nvertices);
   fMutate.setImageColorVec(fcols);
   fMutate.SetImage( fImage.getImage() );
   fMutate.GridInput(4);
@@ -72,7 +98,7 @@ int main(int argc, char* argv[]) {
   // text1.setStyle(sf::Text::Bold);
   // text1.setColor(sf::Color::Red);
   long int counter=0;
- 
+  int nss = 0;
   //////////////////////////////////////////////////////
   //                   Main Loop                      //
   //////////////////////////////////////////////////////
@@ -82,6 +108,7 @@ int main(int argc, char* argv[]) {
     while( window.pollEvent(event) ) {
       if( event.type == sf::Event::Closed || sf::Keyboard::isKeyPressed(sf::Keyboard::Escape) ) {
   	window.close();
+	fMutate.FinishUp();
       }
     }
     while( window_mutate.pollEvent(event) ) {
@@ -90,7 +117,7 @@ int main(int argc, char* argv[]) {
       }
     }
     window.clear();
-    window_mutate.clear(sf::Color::White);
+    window_mutate.clear(sf::Color::Black);
     //window_dia.clear(sf::Color::White);
 
     // Needs to happen after first try:
@@ -113,9 +140,9 @@ int main(int argc, char* argv[]) {
     // This can be cleaned up:
     if( fFirstTry ){
       fMutate.GetAttempt( window_mutate.capture(),true);
-      //fMutate.Test("a_test");
+      //fMutate.Test("a_test");1
       fFirstTry = false;
-    }else{
+    } else{
       //if(counter>0 && counter%10==0 ) {
 	fMutate.GetAttempt( window_mutate.capture(),false);
 	fMutate.CheckMutation();
@@ -126,7 +153,17 @@ int main(int argc, char* argv[]) {
     window_mutate.display();
     //window_dia.display();
 
+    if(counter%2500==0) {
+      sf::Image ss = window_mutate.capture();
+      int n = int(fMutate.GetNAttempts());
+      int m = int(fMutate.GetMutationNumber());
+      const char* name = Form("screenshots/%03d_%06d_%05d_%.4f.png",nss,n,m,fMutate.GetBestChi2() );
+      ss.saveToFile( name );
+      nss++;
+    }
+    
     counter++;
-  } 
+  }
+ 
   return 0;
 }

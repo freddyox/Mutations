@@ -6,6 +6,8 @@
 #include <map>
 
 #include "TString.h"
+#include "TFile.h"
+#include "TH2D.h"
 #include "TRandom.h"
 #include "../include/HandleInput.hh"
 
@@ -17,7 +19,8 @@ private:
   unsigned int fNPixels;                   // N Pixels, same for all windows and images
   unsigned int fGridX, fGridY;             // Grid input image, sum rgb for each grid
   int fNtries;                             // # of polygons to be drawn
-
+  int fNvertices;                          // # of vertices
+  
   // Handle the Polygons:
   sf::VertexArray fTri;                         // 1 polygon
   std::vector<sf::VertexArray> fTrianglesNow;   // The set of polygons prior to mutation
@@ -45,9 +48,16 @@ private:
   
   TRandom fRand; 
   std::vector<sf::RectangleShape> fRects;       // testing
+
+  // ROOT Diagnostics:
+  TFile *fOut;
+  std::vector<double> fNMutateX, fFitnessY;
+  std::vector<double> fNAttemptX,fFitnessYY;
+  TH2D *hRandPosX_Fitness, *hRandPosY_Fitness;
+  double fRandPosX,fRandPosY;
   
 public:
-  Mutations(unsigned int, unsigned int, int);
+  Mutations(unsigned int, unsigned int, int, int);
   ~Mutations() {};
   void draw(sf::RenderTarget&, sf::RenderStates) const;              // Generic draw
   
@@ -69,6 +79,10 @@ public:
   long long int GetMutationNumber() { return fNMutations; }
   long long int GetNAttempts() { return fNAttempts; }
 
+  // ROOT:
+  void setupOutput(const char*);
+  void FinishUp();
+  
   // Testing output of window capture and some functionality:
   void Test(const char* output);
 };
