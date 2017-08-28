@@ -45,10 +45,11 @@ private:
   // Diagnostics:
   long long int fNMutations, fNAttempts;        // # of mutations, # of attempts     
   double fFitness;                              // 1-chi2-minimzation of rgba difference
-  
+  long int fN_nochange;                         // # of attempts without mutating
   TRandom fRand; 
   std::vector<sf::RectangleShape> fRects;       // testing
-
+  bool fStatus;
+  
   // ROOT Diagnostics:
   TFile *fOut;
   std::vector<double> fNMutateX, fFitnessY;
@@ -85,5 +86,6 @@ public:
   
   // Testing output of window capture and some functionality:
   void Test(const char* output);
+  bool CloseProgram(){ return fStatus; }
 };
 #endif

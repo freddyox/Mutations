@@ -12,7 +12,8 @@ Mutations::Mutations(unsigned int x, unsigned int y, int N, int Nvertices)
   fTri = sf::VertexArray(sf::Triangles,3);  // SFML vertex array, defined to be triangle
   
   fFitness = 1.0e10;   // Fitness should always be under 1.0 now
- 
+  fN_nochange = 0;
+  fStatus = false;
   fTriCountPos = 0;    // Counter to access triangle position vector
   fTriCountCol = 0;    // Counter to access triangle color vector
   fNMutations = 0;     // # of successful mutations
@@ -318,6 +319,8 @@ void Mutations::CheckMutation(){
 	      << "\t" << fit_mutation << "\t" << fFitness << std::endl;
   }
   if( fit_mutation > fFitness ){
+    fN_nochange = 0;
+    fStatus = false;
     fFitness = fit_mutation;                  // Update fitness as we have succeeded
     fNow.clear();                             // Clear Now, replace with Next
     fNow = fNext;                             // Replace
@@ -334,6 +337,7 @@ void Mutations::CheckMutation(){
     }
     fNMutations++;                            // Increment the mutation counter, or successes
   } else {
+    fN_nochange++;
     fNext.clear();                            // Mutation is bad, discard
     fTrianglesNext.clear();                   // Discard triangles
     fTrianglesNext = fTrianglesNow;           // Reset
@@ -348,6 +352,10 @@ void Mutations::CheckMutation(){
     fFitnessYY.push_back( fFitness );
   }
 
+  if( fN_nochange > 30000 ) {
+    fStatus = true;
+  }
+  
   hRandPosX_Fitness->Fill(fRandPosX,fFitness);
   hRandPosY_Fitness->Fill(fRandPosY,fFitness);
   fNAttempts++;                               // Total number of attempts:

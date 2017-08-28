@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
   std::string tempname = "";
   int nvertices = 3;
   if(argc==1){        // no arguments
-    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
+    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/einstein25.jpg";
     nvertices = 3;
   }
   else if( argc==2 ){ // 1 argument
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 
   // 1) Initalize the image to be mutated, grab display x/y
   std::string fImName = tempname;
-  //std::string fImName = "/home/obrecht/Documents/Projects_New/Mutations/pics/tri.jpg";
+
   HandleInput fImage(fImName);
   
   sf::Vector2u fSize = fImage.getSize();
@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
   std::vector<sf::Color> fcols = fImage.getColorVec();
 
   // 2) Initialize the class to handle mutations:
-  Mutations fMutate(fSize.x, fSize.y, 300, nvertices);
+  Mutations fMutate(fSize.x, fSize.y, 500, nvertices);
   fMutate.setImageColorVec(fcols);
   fMutate.SetImage( fImage.getImage() );
   fMutate.GridInput(4);
@@ -161,6 +161,8 @@ int main(int argc, char* argv[]) {
       ss.saveToFile( name );
       nss++;
     }
+
+    if( fMutate.CloseProgram() ){ return 0; }
     
     counter++;
   }
