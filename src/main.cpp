@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
   std::string tempname = "";
   int nvertices = 3;
   if(argc==1){        // no arguments
-    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/einstein25.jpg";
+    tempname = "pics/einstein25.jpg";
     nvertices = 3;
   }
   else if( argc==2 ){ // 1 argument
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     }
   } else {
     std::cerr << "Wrong number of arguments pass. Default settings will be used." << std::endl;
-    tempname = "/home/obrecht/Documents/Projects_New/Mutations/pics/mona-lisa.jpg";
+    tempname = "pics/mona-lisa.jpg";
     nvertices = 3;
   }
 
